@@ -53,7 +53,7 @@ typedef struct {
 	LV2_URID_Map*        map;
 	PlimLV2URIs          uris;
 
-	PangoFontDescription* font[2];
+	PangoFontDescription* font[3];
 
 	RobWidget* rw;   // top-level container
 	RobWidget* ctbl; // control element table
@@ -79,7 +79,9 @@ typedef struct {
 	bool disable_signals;
 
 	int                tt_id;
+	int                tt_timeout;
 	cairo_rectangle_t* tt_pos;
+	cairo_rectangle_t* tt_box;
 
 	const char* nfo;
 } PLimUI;
@@ -87,7 +89,7 @@ typedef struct {
 const struct CtrlRange ctrl_range[] = {
 	{ -10, 30, 0, 0.2, 5, false, "Input Gain" },
 	{ -10, 0, 0, 0.1, 1, false, "Threshold" },
-	{ .001, 1, 0.1, 150, 5, true, "Release" },
+	{ .001, 1, 0.01, 150, 5, true, "Release" },
 };
 
 static const char* tooltips[] = {
@@ -304,7 +306,8 @@ tooltip_overlay (RobWidget* rw, cairo_t* cr, cairo_rectangle_t* ev)
 	rcontainer_expose_event (rw, cr, ev);
 	cairo_restore (cr);
 
-	cairo_rectangle (cr, 0, 0, rw->area.width, ui->tt_pos->y + 1);
+	const float top = ui->tt_box->y;
+	rounded_rectangle (cr, 0, top, rw->area.width, ui->tt_pos->y + 1 - top, 3);
 	cairo_set_source_rgba (cr, 0, 0, 0, .7);
 	cairo_fill (cr);
 
@@ -314,8 +317,7 @@ tooltip_overlay (RobWidget* rw, cairo_t* cr, cairo_rectangle_t* ev)
 	cairo_fill (cr);
 
 	const float*          color = c_wht;
-	PangoFontDescription* font;
-	font = pango_font_description_from_string ("Sans 11px");
+	PangoFontDescription* font  = pango_font_description_from_string ("Sans 11px");
 
 	const float xp = rw->area.width * .5;
 	const float yp = rw->area.height * .5;
@@ -331,20 +333,39 @@ tooltip_overlay (RobWidget* rw, cairo_t* cr, cairo_rectangle_t* ev)
 	return TRUE;
 }
 
+static bool
+tooltip_cnt (RobWidget* rw, cairo_t* cr, cairo_rectangle_t* ev)
+{
+	PLimUI* ui = (PLimUI*)rw->top;
+	if (++ui->tt_timeout < 8) {
+		rcontainer_expose_event (rw, cr, ev);
+		queue_draw (rw);
+	} else {
+		rw->expose_event = tooltip_overlay;
+		rw->resized      = TRUE;
+		tooltip_overlay (rw, cr, ev);
+	}
+	return TRUE;
+}
+
 static void
 ttip_handler (RobTkLbl* d, bool on, void* handle)
 {
-	PLimUI* ui = (PLimUI*)handle;
-	ui->tt_id  = -1;
+	PLimUI* ui     = (PLimUI*)handle;
+	ui->tt_id      = -1;
+	ui->tt_timeout = 0;
+
 	for (int i = 0; i < 5; ++i) {
 		if (d == ui->lbl_ctrl[i]) {
 			ui->tt_id = i;
 			break;
 		}
 	}
+
 	if (on && ui->tt_id >= 0) {
 		ui->tt_pos             = &d->rw->area;
-		ui->ctbl->expose_event = tooltip_overlay;
+		ui->tt_box             = &ui->spn_ctrl[0]->rw->area;
+		ui->ctbl->expose_event = tooltip_cnt;
 		ui->ctbl->resized      = TRUE;
 		queue_draw (ui->ctbl);
 	} else {
@@ -401,6 +422,17 @@ m0_size_allocate (RobWidget* handle, int w, int h)
 	}
 	ui->m_fg = ui->m_bg = NULL;
 
+	if (1) {
+		int scale = MIN (w / 180, h / 80);
+		pango_font_description_free (ui->font[1]);
+		pango_font_description_free (ui->font[2]);
+		char fnt[32];
+		snprintf (fnt, 32, "Mono %.0fpx\n", 10 * sqrtf (scale));
+		ui->font[1] = pango_font_description_from_string (fnt);
+		snprintf (fnt, 32, "Mono Bold %.0fpx\n", 12 * sqrtf (scale));
+		ui->font[2] = pango_font_description_from_string (fnt);
+	}
+
 	queue_draw (ui->m0);
 }
 
@@ -417,25 +449,26 @@ m0_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev)
 	cairo_set_source_rgb (cr, c[0], c[1], c[2]);
 	cairo_fill (cr);
 
-	uint32_t top  = (ui->m0_height - 80) * .5;
-	uint32_t left = (ui->m0_width - 320) * .5;
+	const uint32_t yscale = ui->m0_height / 80;
+	const uint32_t top    = (ui->m0_height - 80 * yscale) * .5;
+	const uint32_t disp_w = ui->m0_width - 20; // deafult: 300
+#define YPOS(y) (top + yscale * (y))
+#define HGHT(y) (yscale * (y))
 
 	CairoSetSouerceRGBA (c_blk);
-	rounded_rectangle (cr, left, top, 320, 80, 6);
+	rounded_rectangle (cr, 0, top, ui->m0_width, HGHT (80), 6);
 	cairo_fill_preserve (cr);
 	cairo_clip (cr);
 
-// TODO: scale, variable width
-
-/* -10 .. +20 dB  ->  0..300px */
-#define DEFLECT(x) MAX (0, MIN (300, (100. + 10. * (x))))
-#define DEF(x) (100. + 10. * (x)) / 300.
+#define DEF(x) MAX (0, MIN (1., ((10. + (x)) / 30.)))
+#define DEFLECT(x) (disp_w * DEF (x))
+#define PX (1.0 / (disp_w - 10.))
 
 	if (!ui->m_fg) {
-		cairo_pattern_t* pat = cairo_pattern_create_linear (left + 10, 0.0, left + 300, 0.0);
+		cairo_pattern_t* pat = cairo_pattern_create_linear (10, 0.0, disp_w, 0.0);
 		cairo_pattern_add_color_stop_rgb (pat, DEF (-10), .0, .8, .0);
 		cairo_pattern_add_color_stop_rgb (pat, DEF (0), .0, .8, .0);
-		cairo_pattern_add_color_stop_rgb (pat, DEF (0.3), .7, .7, .0);
+		cairo_pattern_add_color_stop_rgb (pat, DEF (0) + PX, .7, .7, .0);
 		cairo_pattern_add_color_stop_rgb (pat, DEF (5), .7, .7, .0);
 		cairo_pattern_add_color_stop_rgb (pat, DEF (20), .9, .0, .0);
 		ui->m_fg = pat;
@@ -443,10 +476,10 @@ m0_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev)
 
 	if (!ui->m_bg) {
 		const float      alpha = 0.5;
-		cairo_pattern_t* pat   = cairo_pattern_create_linear (left + 10, 0.0, left + 300, 0.0);
+		cairo_pattern_t* pat   = cairo_pattern_create_linear (10, 0.0, disp_w, 0.0);
 		cairo_pattern_add_color_stop_rgba (pat, DEF (-10), .0, .8, .0, alpha);
 		cairo_pattern_add_color_stop_rgba (pat, DEF (0), .0, .8, .0, alpha);
-		cairo_pattern_add_color_stop_rgba (pat, DEF (0.3), .7, .7, .0, alpha);
+		cairo_pattern_add_color_stop_rgba (pat, DEF (0) + PX, .7, .7, .0, alpha);
 		cairo_pattern_add_color_stop_rgba (pat, DEF (5), .7, .7, .0, alpha);
 		cairo_pattern_add_color_stop_rgba (pat, DEF (20), .9, .0, .0, alpha);
 		ui->m_bg = pat;
@@ -454,43 +487,46 @@ m0_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev)
 
 	/* meter background */
 	cairo_set_source (cr, ui->m_bg);
-	cairo_rectangle (cr, 5 + left, top + 67, 310, 8);
+	cairo_rectangle (cr, 5, YPOS (68), disp_w + 10, HGHT (8));
 	cairo_fill (cr);
 
-	cairo_set_line_width (cr, 1);
+	cairo_set_line_width (cr, yscale);
 	cairo_set_source (cr, ui->m_fg);
 
+	/* reduction history */
 	for (int i = 0; i < HISTLEN; ++i) {
 		int p = (i + ui->_hist) % HISTLEN;
 
 		const int x0 = DEFLECT (-20.0f * log10f (ui->_max[p]));
 		const int x1 = DEFLECT (-20.0f * log10f (ui->_min[p]));
 
-		cairo_move_to (cr, 9 + left + x0, top + i + .5);
-		cairo_line_to (cr, 10 + left + x1, top + i + .5);
+		cairo_move_to (cr, 9 + x0, YPOS (i + .5));
+		cairo_line_to (cr, 10 + x1, YPOS (i + .5));
 
 		cairo_stroke (cr);
 	}
 
+	/* current reduction */
 	if (ui->_peak > -10) {
-		cairo_rectangle (cr, 5 + left, top + 67, 5 + DEFLECT (ui->_peak), 8);
+		cairo_rectangle (cr, 5, YPOS (68), 5 + DEFLECT (ui->_peak), HGHT (8));
 		cairo_fill (cr);
 	}
 
 	// TODO: cache this background
 
 	/* meter ticks */
+	cairo_set_line_width (cr, 1);
 	CairoSetSouerceRGBA (c_wht);
 	for (int i = 0; i < 7; ++i) {
 		int dbx = DEFLECT (-10 + i * 5);
-		cairo_move_to (cr, 9.5 + left + dbx, top + 67);
-		cairo_line_to (cr, 9.5 + left + dbx, top + 75);
+		cairo_move_to (cr, 9.5 + dbx, YPOS (68));
+		cairo_line_to (cr, 9.5 + dbx, YPOS (76));
 		cairo_stroke (cr);
 
 		if (i > 0) {
 			int          tw, th;
 			PangoLayout* pl = pango_cairo_create_layout (cr);
-			pango_layout_set_font_description (pl, ui->font[0]);
+			pango_layout_set_font_description (pl, ui->font[1]);
 			if (i > 1) {
 				char txt[16];
 				snprintf (txt, 16, "-%d ", (i - 2) * 5);
@@ -500,7 +536,7 @@ m0_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev)
 			}
 			CairoSetSouerceRGBA (c_dlf);
 			pango_layout_get_pixel_size (pl, &tw, &th);
-			cairo_move_to (cr, 9.5 + left + dbx - tw * .5, top + 68 - th);
+			cairo_move_to (cr, 9.5 + dbx - tw * .5, YPOS (68) - th);
 			pango_cairo_show_layout (cr, pl);
 			g_object_unref (pl);
 		}
@@ -510,22 +546,25 @@ m0_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev)
 	if (1) {
 		int          tw, th;
 		char         txt[16];
+		int          y0 = top;
 		PangoLayout* pl = pango_cairo_create_layout (cr);
-		pango_layout_set_font_description (pl, ui->font[1]);
+		pango_layout_set_font_description (pl, ui->font[2]);
 
 		snprintf (txt, 16, "%5.1f dB", robtk_dial_get_value (ui->spn_ctrl[0]));
 		cairo_set_source_rgb (cr, .6, .6, .1);
 		pango_layout_set_text (pl, txt, -1);
 		pango_layout_get_pixel_size (pl, &tw, &th);
-		cairo_move_to (cr, left + 90 - tw, top + th * .5);
+		cairo_move_to (cr, DEFLECT (-1) - tw, y0 + th * .5);
 		pango_cairo_show_layout (cr, pl);
+		y0 += th;
 
 		snprintf (txt, 16, "%5.1f dB", robtk_dial_get_value (ui->spn_ctrl[1]));
 		cairo_set_source_rgb (cr, .7, .2, .2);
 		pango_layout_set_text (pl, txt, -1);
 		pango_layout_get_pixel_size (pl, &tw, &th);
-		cairo_move_to (cr, left + 90 - tw, top + 16 + th * .5);
+		cairo_move_to (cr, DEFLECT (-1) - tw, y0 + th * .5);
 		pango_cairo_show_layout (cr, pl);
+		y0 += th;
 
 		const float val = gui_to_ctrl (2, robtk_dial_get_value (ui->spn_ctrl[2]));
 		format_msec (txt, val);
@@ -533,7 +572,7 @@ m0_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev)
 		cairo_set_source_rgb (cr, .2, .2, .7);
 		pango_layout_set_text (pl, txt, -1);
 		pango_layout_get_pixel_size (pl, &tw, &th);
-		cairo_move_to (cr, left + 90 - tw, top + 32 + th * .5);
+		cairo_move_to (cr, DEFLECT (-1) - tw, y0 + th * .5);
 		pango_cairo_show_layout (cr, pl);
 
 		g_object_unref (pl);
@@ -553,7 +592,8 @@ toplevel (PLimUI* ui, void* const top)
 	robwidget_toplevel_enable_scaling (ui->rw);
 
 	ui->font[0] = pango_font_description_from_string ("Mono 9px");
-	ui->font[1] = pango_font_description_from_string ("Mono Bold 12px");
+	ui->font[1] = pango_font_description_from_string ("Mono 10px");
+	ui->font[2] = pango_font_description_from_string ("Mono Bold 12px");
 
 	prepare_faceplates (ui);
 
@@ -639,6 +679,7 @@ gui_cleanup (PLimUI* ui)
 
 	pango_font_description_free (ui->font[0]);
 	pango_font_description_free (ui->font[1]);
+	pango_font_description_free (ui->font[2]);
 
 	if (ui->m_fg) {
 		cairo_pattern_destroy (ui->m_fg);
