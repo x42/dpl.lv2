@@ -173,12 +173,8 @@ run (LV2_Handle instance, uint32_t n_samples)
 		return;
 	}
 
-	/* check atom buffer size */
-	const size_t   size        = (sizeof (float) * 2 * HISTLEN);
-	const uint32_t capacity    = self->notify->atom.size;
-	bool           capacity_ok = capacity < (size + 128);
-
 	/* prepare forge buffer and initialize atom-sequence */
+	const uint32_t capacity = self->notify->atom.size;
 	lv2_atom_forge_set_buffer (&self->forge, (uint8_t*)self->notify, capacity);
 	lv2_atom_forge_sequence_head (&self->forge, &self->frame, 0);
 
