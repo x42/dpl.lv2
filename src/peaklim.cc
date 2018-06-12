@@ -94,11 +94,13 @@ Peaklim::set_threshold (float v)
 void
 Peaklim::set_release (float v)
 {
-	if (v > 1.0f)
+	if (v > 1.0f) {
 		v = 1.0f;
-	if (v < 1e-3f)
+	}
+	if (v < 1e-3f) {
 		v = 1e-3f;
-	_w3       = 1.0f / (v * _fsamp);
+	}
+	_w3 = 1.0f / (v * _fsamp);
 }
 
 void
@@ -107,15 +109,16 @@ Peaklim::init (float fsamp, int nchan)
 	int i, k1, k2;
 
 	fini ();
-	if (nchan > MAXCHAN)
+	if (nchan > MAXCHAN) {
 		nchan = MAXCHAN;
-	_fsamp        = fsamp;
-	_nchan        = nchan;
+	}
+	_fsamp = fsamp;
+	_nchan = nchan;
 	if (fsamp > 130000)
 		_div1 = 32;
-	else if (fsamp > 65000)
+	else if (fsamp > 65000) {
 		_div1 = 16;
-	else
+	} else
 		_div1 = 8;
 	_div2         = 8;
 	k1            = (int)(ceilf (1.2e-3f * _fsamp / _div1));
@@ -207,11 +210,13 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 				_dbuff[j][wi + i] = x;
 				z += _wlf * (x - z) + 1e-20f;
 				x = fabsf (x);
-				if (x > m1)
+				if (x > m1) {
 					m1 = x;
-				x          = fabsf (z);
-				if (x > m2)
+				}
+				x = fabsf (z);
+				if (x > m2) {
 					m2 = x;
+				}
 			}
 			_zlf[j] = z;
 		}
@@ -220,12 +225,13 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 		_c1 -= n;
 		if (_c1 == 0) {
 			m1 *= _gt;
-			if (m1 > pk)
+			if (m1 > pk) {
 				pk = m1;
-			h1         = (m1 > 1.0f) ? 1.0f / m1 : 1.0f;
-			h1         = _hist1.write (h1);
-			m1         = 0;
-			_c1        = _div1;
+			}
+			h1  = (m1 > 1.0f) ? 1.0f / m1 : 1.0f;
+			h1  = _hist1.write (h1);
+			m1  = 0;
+			_c1 = _div1;
 			if (--_c2 == 0) {
 				m2 *= _gt;
 				h2  = (m2 > 1.0f) ? 1.0f / m2 : 1.0f;
@@ -246,14 +252,17 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 			z1 += _w1 * (h1 - z1);
 			z2 += _w2 * (h2 - z2);
 			z = (z2 < z1) ? z2 : z1;
-			if (z < z3)
+			if (z < z3) {
 				z3 += _w1 * (z - z3);
-			else
+			} else {
 				z3 += _w3 * (z - z3);
-			if (z3 > t1)
+			}
+			if (z3 > t1) {
 				t1 = z3;
-			if (z3 < t0)
+			}
+			if (z3 < t0) {
 				t0 = z3;
+			}
 			for (j = 0; j < _nchan; j++) {
 				out[j][k + i] = z3 * _dbuff[j][ri + i];
 			}
