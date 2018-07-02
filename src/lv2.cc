@@ -27,6 +27,20 @@
 #include "lv2/lv2plug.in/ns/ext/state/state.h"
 #include "lv2/lv2plug.in/ns/lv2core/lv2.h"
 
+#ifdef DISPLAY_INTERFACE
+#include "lv2_rgext.h"
+#include <cairo/cairo.h>
+#include <pango/pangocairo.h>
+#endif
+
+#ifndef MAX
+#define MAX(A, B) ((A) > (B)) ? (A) : (B)
+#endif
+
+#ifndef MIN
+#define MIN(A, B) ((A) < (B)) ? (A) : (B)
+#endif
+
 typedef struct {
 	float* _port[PLIM_LAST];
 
@@ -53,6 +67,16 @@ typedef struct {
 	bool  ui_active;
 	bool  send_state_to_ui;
 	float ui_scale;
+
+#ifdef DISPLAY_INTERFACE
+	LV2_Inline_Display_Image_Surface surf;
+	cairo_surface_t*                 display;
+	LV2_Inline_Display*              queue_draw;
+	cairo_pattern_t*                 mpat;
+	uint32_t                         w, h;
+	float                            ui_reduction;
+#endif
+
 } Plim;
 
 static LV2_Handle
@@ -78,6 +102,11 @@ instantiate (const LV2_Descriptor*     descriptor,
 		if (!strcmp (features[i]->URI, LV2_URID__map)) {
 			self->map = (LV2_URID_Map*)features[i]->data;
 		}
+#ifdef DISPLAY_INTERFACE
+		else if (!strcmp (features[i]->URI, LV2_INLINEDISPLAY__queue_draw)) {
+			self->queue_draw = (LV2_Inline_Display*)features[i]->data;
+		}
+#endif
 	}
 
 	if (!self->map) {
@@ -238,6 +267,13 @@ run (LV2_Handle instance, uint32_t n_samples)
 			self->_peak = pk;
 		}
 
+#ifdef DISPLAY_INTERFACE
+		if (self->queue_draw) {
+			self->ui_reduction = self->_peak; // self->_max[self->_hist];
+			self->queue_draw->queue_draw (self->queue_draw->handle);
+		}
+#endif
+
 		self->_hist = (self->_hist + 1) % HISTLEN;
 		tx          = true;
 	}
@@ -313,6 +349,14 @@ cleanup (LV2_Handle instance)
 {
 	Plim* self = (Plim*)instance;
 	delete self->peaklim;
+#ifdef DISPLAY_INTERFACE
+	if (self->mpat) {
+		cairo_pattern_destroy (self->mpat);
+	}
+	if (self->display) {
+		cairo_surface_destroy (self->display);
+	}
+#endif
 	free (instance);
 }
 
@@ -327,6 +371,73 @@ struct license_info license_infos = {
 #include "gpg_lv2ext.c"
 #endif
 
+#ifdef DISPLAY_INTERFACE
+static void
+create_pattern (Plim* self, double w)
+{
+	cairo_pattern_t* pat = cairo_pattern_create_linear (0.0, 0.0, w, 0);
+
+#define DEF(x) (w - w * (x) / 20.)
+	cairo_pattern_add_color_stop_rgb (pat, DEF (0), .7, .7, .0);
+	cairo_pattern_add_color_stop_rgb (pat, DEF (5), .7, .7, .0);
+	cairo_pattern_add_color_stop_rgb (pat, DEF (20), .9, .0, .0);
+
+	self->mpat = pat;
+}
+
+static LV2_Inline_Display_Image_Surface*
+dpl_render (LV2_Handle handle, uint32_t w, uint32_t max_h)
+{
+#ifdef WITH_SIGNATURE
+	if (!is_licensed (handle)) {
+		return NULL;
+	}
+#endif
+	uint32_t h = MAX (10, MIN (1 | (uint32_t)ceilf (w / 16.f), max_h));
+
+	Plim* self = (Plim*)handle;
+
+	if (!self->display || self->w != w || self->h != h) {
+		if (self->display)
+			cairo_surface_destroy (self->display);
+		self->display = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, w, h);
+		self->w       = w;
+		self->h       = h;
+		if (self->mpat) {
+			cairo_pattern_destroy (self->mpat);
+			self->mpat = NULL;
+		}
+	}
+
+	if (!self->mpat) {
+		create_pattern (self, w);
+	}
+
+	cairo_t* cr = cairo_create (self->display);
+	cairo_rectangle (cr, 0, 0, w, h);
+	cairo_set_source_rgba (cr, .2, .2, .2, 1.0);
+	cairo_fill (cr);
+
+#define CLAMP01(x) (((x) > 1.f) ? 1.f : (((x) < 0.f) ? 0.f : (x)))
+	//const int xw = w * CLAMP01 (- log10f (self->ui_reduction));
+	const int xw = w * CLAMP01 (self->ui_reduction / 20.f);
+
+	cairo_rectangle (cr, w - xw, 1, xw, h - 2);
+	cairo_set_source (cr, self->mpat);
+	cairo_fill (cr);
+
+	/* finish surface */
+	cairo_destroy (cr);
+	cairo_surface_flush (self->display);
+	self->surf.width  = cairo_image_surface_get_width (self->display);
+	self->surf.height = cairo_image_surface_get_height (self->display);
+	self->surf.stride = cairo_image_surface_get_stride (self->display);
+	self->surf.data   = cairo_image_surface_get_data (self->display);
+
+	return &self->surf;
+}
+#endif
+
 const void*
 extension_data (const char* uri)
 {
@@ -334,6 +445,19 @@ extension_data (const char* uri)
 	if (!strcmp (uri, LV2_STATE__interface)) {
 		return &state;
 	}
+#ifdef DISPLAY_INTERFACE
+	static const LV2_Inline_Display_Interface display = { dpl_render };
+	if (!strcmp (uri, LV2_INLINEDISPLAY__interface)) {
+#if (defined _WIN32 && defined RTK_STATIC_INIT)
+		static int once = 0;
+		if (!once) {
+			once = 1;
+			gobject_init_ctor ();
+		}
+#endif
+		return &display;
+	}
+#endif
 #ifdef WITH_SIGNATURE
 	LV2_LICENSE_EXT_C
 #endif
