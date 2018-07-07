@@ -230,7 +230,7 @@ run (LV2_Handle instance, uint32_t n_samples)
 		}
 	}
 
-#define BYPASS_THRESH 20 // dBFS
+#define BYPASS_THRESH 40 // dBFS
 
 	/* bypass/enable */
 	const bool enable = *self->_port[PLIM_ENABLE] > 0;
@@ -238,12 +238,12 @@ run (LV2_Handle instance, uint32_t n_samples)
 	if (enable) {
 		self->peaklim->set_inpgain (*self->_port[PLIM_GAIN]);
 		self->peaklim->set_threshold (*self->_port[PLIM_THRESHOLD]);
+		self->peaklim->set_release (*self->_port[PLIM_RELEASE]);
 	} else {
 		self->peaklim->set_inpgain (0);
 		self->peaklim->set_threshold (BYPASS_THRESH);
+		self->peaklim->set_release (.05);
 	}
-
-	self->peaklim->set_release (*self->_port[PLIM_RELEASE]);
 
 	float* ins[2]  = { self->_port[PLIM_INPUT0], self->_port[PLIM_INPUT1] };
 	float* outs[2] = { self->_port[PLIM_OUTPUT0], self->_port[PLIM_OUTPUT1] };
@@ -278,11 +278,7 @@ run (LV2_Handle instance, uint32_t n_samples)
 		tx          = true;
 	}
 
-	if (enable) {
-		*self->_port[PLIM_LEVEL] = self->_peak;
-	} else {
-		*self->_port[PLIM_LEVEL] = self->_peak + BYPASS_THRESH;
-	}
+	*self->_port[PLIM_LEVEL]   = enable ? fmaxf (-10.f, self->_peak) : -10;
 	*self->_port[PLIM_LATENCY] = self->peaklim->get_latency ();
 
 	if (self->ui_active && self->send_state_to_ui) {
