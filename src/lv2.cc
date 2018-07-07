@@ -268,8 +268,9 @@ run (LV2_Handle instance, uint32_t n_samples)
 		}
 
 #ifdef DISPLAY_INTERFACE
-		if (self->queue_draw) {
-			self->ui_reduction = self->_peak; // self->_max[self->_hist];
+		const float display_lvl = enable ? fmaxf (-10.f, self->_peak) : -100.f;
+		if (self->queue_draw && self->ui_reduction != display_lvl) {
+			self->ui_reduction = display_lvl;
 			self->queue_draw->queue_draw (self->queue_draw->handle);
 		}
 #endif
@@ -369,14 +370,21 @@ struct license_info license_infos = {
 
 #ifdef DISPLAY_INTERFACE
 static void
-create_pattern (Plim* self, double w)
+create_pattern (Plim* self, const double w)
 {
 	cairo_pattern_t* pat = cairo_pattern_create_linear (0.0, 0.0, w, 0);
 
-#define DEF(x) (w - w * (x) / 20.)
-	cairo_pattern_add_color_stop_rgb (pat, DEF (0), .7, .7, .0);
-	cairo_pattern_add_color_stop_rgb (pat, DEF (5), .7, .7, .0);
-	cairo_pattern_add_color_stop_rgb (pat, DEF (20), .9, .0, .0);
+	const int x0 = floor (w * 0.05);
+	const int x1 = ceil (w * 0.95);
+	const int wd = x1 - x0;
+
+#define DEF(x) ((x1 - wd * (x) / 20.) / w)
+	cairo_pattern_add_color_stop_rgba (pat, 1.0, .7, .7, .0, 0);
+	cairo_pattern_add_color_stop_rgba (pat, DEF (0), .7, .7, .0, 1);
+	cairo_pattern_add_color_stop_rgba (pat, DEF (5), .7, .7, .0, 1);
+	cairo_pattern_add_color_stop_rgba (pat, DEF (20), .9, .0, .0, 1);
+	cairo_pattern_add_color_stop_rgba (pat, 0.0, .9, .0, .0, 0);
+#undef DEF
 
 	self->mpat = pat;
 }
@@ -389,7 +397,7 @@ dpl_render (LV2_Handle handle, uint32_t w, uint32_t max_h)
 		return NULL;
 	}
 #endif
-	uint32_t h = MAX (10, MIN (1 | (uint32_t)ceilf (w / 16.f), max_h));
+	uint32_t h = MAX (11, MIN (1 | (uint32_t)ceilf (w / 10.f), max_h));
 
 	Plim* self = (Plim*)handle;
 
@@ -414,13 +422,46 @@ dpl_render (LV2_Handle handle, uint32_t w, uint32_t max_h)
 	cairo_set_source_rgba (cr, .2, .2, .2, 1.0);
 	cairo_fill (cr);
 
-#define CLAMP01(x) (((x) > 1.f) ? 1.f : (((x) < 0.f) ? 0.f : (x)))
-	//const int xw = w * CLAMP01 (- log10f (self->ui_reduction));
-	const int xw = w * CLAMP01 (self->ui_reduction / 20.f);
+	const int x0 = floor (w * 0.05);
+	const int x1 = ceil (w * 0.95);
+	const int wd = x1 - x0;
 
-	cairo_rectangle (cr, w - xw, 1, xw, h - 2);
-	cairo_set_source (cr, self->mpat);
+	cairo_set_line_width (cr, 1);
+	cairo_set_source_rgba (cr, 0.8, 0.8, 0.8, 1.0);
+
+#define DEF(x) (rint (x1 - wd * (x) / 20.) - .5)
+	cairo_move_to (cr, DEF (0), 0);
+	cairo_rel_line_to (cr, 0, h);
+	cairo_stroke (cr);
+	cairo_move_to (cr, DEF (5), 0);
+	cairo_rel_line_to (cr, 0, h);
+	cairo_stroke (cr);
+	cairo_move_to (cr, DEF (10), 0);
+	cairo_rel_line_to (cr, 0, h);
+	cairo_stroke (cr);
+	cairo_move_to (cr, DEF (15), 0);
+	cairo_rel_line_to (cr, 0, h);
+	cairo_stroke (cr);
+	cairo_move_to (cr, DEF (20), 0);
+	cairo_rel_line_to (cr, 0, h);
+	cairo_stroke (cr);
+#undef DEF
+
+	cairo_rectangle (cr, x0, 2, wd, h - 5);
+	cairo_set_source_rgba (cr, .5, .5, .5, 0.6);
 	cairo_fill (cr);
+
+#define CLAMP01(x) (((x) > 1.f) ? 1.f : (((x) < 0.f) ? 0.f : (x)))
+	if (self->ui_reduction >= -10.f) {
+		const int xw = wd * CLAMP01 (self->ui_reduction / 20.f);
+		cairo_rectangle (cr, x1 - xw, 2, xw, h - 5);
+		cairo_set_source (cr, self->mpat);
+		cairo_fill (cr);
+	} else {
+		cairo_rectangle (cr, 0, 0, w, h);
+		cairo_set_source_rgba (cr, .2, .2, .2, 0.8);
+		cairo_fill (cr);
+	}
 
 	/* finish surface */
 	cairo_destroy (cr);
