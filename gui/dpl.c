@@ -51,6 +51,7 @@ typedef struct {
 	LV2UI_Controller     controller;
 	LV2_Atom_Forge       forge;
 	LV2_URID_Map*        map;
+	LV2UI_Touch*         touch;
 	PlimLV2URIs          uris;
 
 	PangoFontDescription* font[3];
@@ -623,6 +624,10 @@ toplevel (PLimUI* ui, void* const top)
 		robtk_dial_set_default (ui->spn_ctrl[i], ctrl_to_gui (i, ctrl_range[i].dflt));
 		robtk_dial_set_scroll_mult (ui->spn_ctrl[i], ctrl_range[i].mult);
 
+		if (ui->touch) {
+			robtk_dial_set_touch (ui->spn_ctrl[i], ui->touch->touch, ui->touch->handle, PLIM_GAIN + i);
+		}
+
 		robtk_dial_set_scaled_surface_scale (ui->spn_ctrl[i], ui->dial_bg[i], 2.0);
 
 		robtk_lbl_annotation_callback (ui->lbl_ctrl[i], ttip_handler, ui);
@@ -775,6 +780,8 @@ instantiate (
 	for (int i = 0; features[i]; ++i) {
 		if (!strcmp (features[i]->URI, LV2_URID_URI "#map")) {
 			ui->map = (LV2_URID_Map*)features[i]->data;
+		} else if (!strcmp(features[i]->URI, LV2_UI__touch)) {
+			ui->touch = (LV2UI_Touch*)features[i]->data;
 		}
 	}
 
