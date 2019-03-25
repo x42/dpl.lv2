@@ -6,8 +6,8 @@
 	@VERSION@
 	doap:name "x42-dpl - Digital Peak Limiter@NAMESUFFIX@";
 	lv2:requiredFeature urid:map ;
-	lv2:extensionData state:interface @SIGNATURE@;
-	lv2:optionalFeature lv2:hardRTCapable ;
+	lv2:extensionData idpy:interface, state:interface @SIGNATURE@;
+	lv2:optionalFeature lv2:hardRTCapable, idpy:queue_draw ;
   @UITTL@
 	lv2:port [
 		a atom:AtomPort ,
