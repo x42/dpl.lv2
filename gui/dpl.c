@@ -108,7 +108,7 @@ static const char* tooltips[] = {
 	*/
 };
 
-float
+static float
 ctrl_to_gui (const uint32_t c, const float v)
 {
 	if (!ctrl_range[c].log) {
@@ -118,7 +118,7 @@ ctrl_to_gui (const uint32_t c, const float v)
 	return rintf (ctrl_range[c].step / r * (logf (v / ctrl_range[c].min)));
 }
 
-float
+static float
 gui_to_ctrl (const uint32_t c, const float v)
 {
 	if (!ctrl_range[c].log) {
@@ -128,7 +128,7 @@ gui_to_ctrl (const uint32_t c, const float v)
 	return expf (logf (ctrl_range[c].min) + v * r / ctrl_range[c].step);
 }
 
-float
+static float
 k_min (const uint32_t c)
 {
 	if (!ctrl_range[c].log) {
@@ -137,7 +137,7 @@ k_min (const uint32_t c)
 	return 0;
 }
 
-float
+static float
 k_max (const uint32_t c)
 {
 	if (!ctrl_range[c].log) {
@@ -146,7 +146,7 @@ k_max (const uint32_t c)
 	return ctrl_range[c].step;
 }
 
-float
+static float
 k_step (const uint32_t c)
 {
 	if (!ctrl_range[c].log) {
