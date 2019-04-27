@@ -350,21 +350,21 @@ tooltip_cnt (RobWidget* rw, cairo_t* cr, cairo_rectangle_t* ev)
 }
 
 static void
-ttip_handler (RobTkLbl* d, bool on, void* handle)
+ttip_handler (RobWidget* rw, bool on, void* handle)
 {
 	PLimUI* ui     = (PLimUI*)handle;
 	ui->tt_id      = -1;
 	ui->tt_timeout = 0;
 
-	for (int i = 0; i < 5; ++i) {
-		if (d == ui->lbl_ctrl[i]) {
+	for (int i = 0; i < 3; ++i) {
+		if (rw == ui->lbl_ctrl[i]->rw) {
 			ui->tt_id = i;
 			break;
 		}
 	}
 
 	if (on && ui->tt_id >= 0) {
-		ui->tt_pos             = &d->rw->area;
+		ui->tt_pos             = &rw->area;
 		ui->tt_box             = &ui->spn_ctrl[0]->rw->area;
 		ui->ctbl->expose_event = tooltip_cnt;
 		ui->ctbl->resized      = TRUE;
