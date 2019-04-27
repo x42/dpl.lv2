@@ -381,8 +381,8 @@ cleanup (LV2_Handle instance)
 #include "gpg_init.c"
 #include WITH_SIGNATURE
 struct license_info license_infos = {
-	"x42-Equalizer",
-	"http://x42-plugins.com/x42/x42-eq"
+	"x42-Digital Peak Limiter",
+	"http://x42-plugins.com/x42/x42-limiter"
 };
 #include "gpg_lv2ext.c"
 #endif
