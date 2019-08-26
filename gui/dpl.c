@@ -25,6 +25,8 @@
 
 #include "../src/uris.h"
 
+#define RTK_USE_HOST_COLORS
+
 #define RTK_URI PLIM_URI
 #define RTK_GUI "ui"
 
@@ -157,7 +159,7 @@ k_step (const uint32_t c)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static const float c_dlf[4] = { 0.8, 0.8, 0.8, 1.0 }; // dial faceplate fg
+static float c_dlf[4] = { 0.8, 0.8, 0.8, 1.0 }; // dial faceplate fg
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -798,6 +800,12 @@ instantiate (
 
 	map_plim_uris (ui->map, &ui->uris);
 	lv2_atom_forge_init (&ui->forge, ui->map);
+
+	static float c_bg[4];
+	static float c_fg[4];
+	get_color_from_theme (0, c_fg);
+	get_color_from_theme (1, c_bg);
+	get_interpolate_color (c_dlf, c_fg, c_bg, .2);
 
 	*widget             = toplevel (ui, ui_toplevel);
 	ui->disable_signals = false;
