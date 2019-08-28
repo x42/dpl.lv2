@@ -800,12 +800,7 @@ instantiate (
 
 	map_plim_uris (ui->map, &ui->uris);
 	lv2_atom_forge_init (&ui->forge, ui->map);
-
-	static float c_bg[4];
-	static float c_fg[4];
-	get_color_from_theme (0, c_fg);
-	get_color_from_theme (1, c_bg);
-	get_interpolate_color (c_dlf, c_fg, c_bg, .2);
+	interpolate_fg_bg (c_dlf, .2);
 
 	*widget             = toplevel (ui, ui_toplevel);
 	ui->disable_signals = false;
