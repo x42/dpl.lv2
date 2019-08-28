@@ -488,6 +488,10 @@ m0_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev)
 		ui->m_bg = pat;
 	}
 
+	if (ui->nfo) {
+		write_text_full (cr, ui->nfo, ui->font[0], ui->m0_width - 1, top + 3, 1.5 * M_PI, 4, c_g30);
+	}
+
 	/* meter background */
 	cairo_set_source (cr, ui->m_bg);
 	cairo_rectangle (cr, 5, YPOS (68), disp_w + 10, HGHT (8));
