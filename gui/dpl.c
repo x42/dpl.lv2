@@ -38,6 +38,8 @@
 #define MIN(A, B) ((A) < (B)) ? (A) : (B)
 #endif
 
+#define THRESHOLD_ABBREV "Thld"
+
 struct CtrlRange {
 	float       min;
 	float       max;
@@ -74,6 +76,7 @@ typedef struct {
 
 	RobTkDial* spn_ctrl[3];
 	RobTkLbl*  lbl_ctrl[3];
+	RobTkCBtn* btn_truepeak;
 
 	cairo_pattern_t* m_fg;
 	cairo_pattern_t* m_bg;
@@ -98,7 +101,7 @@ const struct CtrlRange ctrl_range[] = {
 static const char* tooltips[] = {
 	"<markup><b>Input Gain.</b> Gain applied\nbefore peak detection or any\nother processing.\n</markup>",
 
-	"<markup><b>Threshold.</b> The maximum sample\nvalue at the output.\n</markup>",
+	"<markup><b>Threshold.</b> The maximum sample\nvalue at the output.\n</markup>", // unused
 
 	"<markup><b>Release time.</b> Minimum recovery\ntime. Low frequency content\nmay extend this.\n</markup>",
 	/*
@@ -108,6 +111,7 @@ static const char* tooltips[] = {
 	"the limiter following the shape of the waveform and create excessive distortion.\n"
 	"Short superimposed peaks will still have the release time as set by this control.\n</markup>",
 	*/
+	"<markup><b>Threshold (Sample/True Peak).</b> Set\nmaximum alloed value at the output\nas digital or oversampled peak.\n</markup>",
 };
 
 static float
@@ -302,7 +306,7 @@ static bool
 tooltip_overlay (RobWidget* rw, cairo_t* cr, cairo_rectangle_t* ev)
 {
 	PLimUI* ui = (PLimUI*)rw->top;
-	assert (ui->tt_id >= 0 && ui->tt_id < 3);
+	assert (ui->tt_id >= 0 && ui->tt_id < 4);
 
 	cairo_save (cr);
 	rw->resized = TRUE;
@@ -314,10 +318,12 @@ tooltip_overlay (RobWidget* rw, cairo_t* cr, cairo_rectangle_t* ev)
 	cairo_set_source_rgba (cr, 0, 0, 0, .7);
 	cairo_fill (cr);
 
-	rounded_rectangle (cr, ui->tt_pos->x + 1, ui->tt_pos->y + 1,
-	                   ui->tt_pos->width + 3, ui->tt_pos->height + 1, 3);
-	cairo_set_source_rgba (cr, 1, 1, 1, .5);
-	cairo_fill (cr);
+	if (ui->tt_id < 3) {
+		rounded_rectangle (cr, ui->tt_pos->x + 1, ui->tt_pos->y + 1,
+				ui->tt_pos->width + 3, ui->tt_pos->height + 1, 3);
+		cairo_set_source_rgba (cr, 1, 1, 1, .5);
+		cairo_fill (cr);
+	}
 
 	const float*          color = c_wht;
 	PangoFontDescription* font  = pango_font_description_from_string ("Sans 11px");
@@ -364,6 +370,9 @@ ttip_handler (RobWidget* rw, bool on, void* handle)
 			break;
 		}
 	}
+	if (rw == ui->btn_truepeak->rw) {
+		ui->tt_id = 3;
+	}
 
 	if (on && ui->tt_id >= 0) {
 		ui->tt_pos             = &rw->area;
@@ -397,6 +406,20 @@ cb_spn_ctrl (RobWidget* w, void* handle)
 		ui->write (ui->controller, PLIM_GAIN + i, sizeof (float), 0, (const void*)&val);
 		break;
 	}
+	return TRUE;
+}
+
+static bool
+cb_btn_truepeak (RobWidget* w, void* handle)
+{
+	PLimUI* ui = (PLimUI*)handle;
+	if (ui->disable_signals)
+		return TRUE;
+
+	const float val = robtk_cbtn_get_active (ui->btn_truepeak) ? 1.f : 0.f;
+	robtk_cbtn_set_text (ui->btn_truepeak, val > 0 ? THRESHOLD_ABBREV " dBTP" : THRESHOLD_ABBREV " dBFS");
+	ui->write (ui->controller, PLIM_TRUEPEAK, sizeof (float), 0, (const void*)&val);
+
 	return TRUE;
 }
 
@@ -617,6 +640,7 @@ toplevel (PLimUI* ui, void* const top)
 #define GSP_W(PTR) robtk_dial_widget (PTR)
 #define GLB_W(PTR) robtk_lbl_widget (PTR)
 #define GSL_W(PTR) robtk_select_widget (PTR)
+#define GBT_W(PTR) robtk_cbtn_widget (PTR)
 
 	for (uint32_t i = 0; i < 3; ++i) {
 		ui->lbl_ctrl[i] = robtk_lbl_new (ctrl_range[i].name);
@@ -636,10 +660,12 @@ toplevel (PLimUI* ui, void* const top)
 
 		robtk_dial_set_scaled_surface_scale (ui->spn_ctrl[i], ui->dial_bg[i], 2.0);
 
-		robtk_lbl_annotation_callback (ui->lbl_ctrl[i], ttip_handler, ui);
-
 		rob_table_attach (ui->ctbl, GSP_W (ui->spn_ctrl[i]), i, i + 1, 0, 1, 4, 0, RTK_EXANDF, RTK_SHRINK);
-		rob_table_attach (ui->ctbl, GLB_W (ui->lbl_ctrl[i]), i, i + 1, 1, 2, 4, 0, RTK_EXANDF, RTK_SHRINK);
+
+		if (i != 1) {
+			robtk_lbl_annotation_callback (ui->lbl_ctrl[i], ttip_handler, ui);
+			rob_table_attach (ui->ctbl, GLB_W (ui->lbl_ctrl[i]), i, i + 1, 1, 2, 4, 0, RTK_EXANDF, RTK_SHRINK);
+		}
 	}
 
 	ui->spn_ctrl[2]->displaymode = 3; // use dot
@@ -649,6 +675,14 @@ toplevel (PLimUI* ui, void* const top)
 	robtk_dial_annotation_callback (ui->spn_ctrl[0], dial_annotation_db, ui);
 	robtk_dial_annotation_callback (ui->spn_ctrl[1], dial_annotation_db, ui);
 	robtk_dial_annotation_callback (ui->spn_ctrl[2], dial_annotation_tm, ui);
+
+	/* add true-peak button/label */
+	ui->btn_truepeak = robtk_cbtn_new (THRESHOLD_ABBREV " dBFS", GBT_LED_RIGHT, false);
+	robtk_cbtn_set_callback (ui->btn_truepeak, cb_btn_truepeak, ui);
+	robtk_cbtn_set_color_on (ui->btn_truepeak, .1, .3, .8);
+	robtk_cbtn_set_color_off (ui->btn_truepeak, .1, .1, .3);
+	robtk_cbtn_annotation_callback (ui->btn_truepeak, ttip_handler, ui);
+	rob_table_attach (ui->ctbl, GBT_W (ui->btn_truepeak), 1, 2, 1, 2, 4, 0, RTK_EXANDF, RTK_SHRINK);
 
 	/* some custom colors */
 	{
@@ -687,6 +721,7 @@ gui_cleanup (PLimUI* ui)
 		robtk_lbl_destroy (ui->lbl_ctrl[i]);
 		cairo_surface_destroy (ui->dial_bg[i]);
 	}
+	robtk_cbtn_destroy (ui->btn_truepeak);
 
 	pango_font_description_free (ui->font[0]);
 	pango_font_description_free (ui->font[1]);
@@ -874,6 +909,11 @@ port_event (LV2UI_Handle handle,
 	if (port_index == PLIM_LEVEL) {
 		ui->_peak = *(float*)buffer;
 		queue_draw (ui->m0);
+	} else if (port_index == PLIM_TRUEPEAK) {
+		ui->disable_signals = true;
+		robtk_cbtn_set_active (ui->btn_truepeak, (*(float*)buffer) > 0);
+		robtk_cbtn_set_text (ui->btn_truepeak, (*(float*)buffer) > 0 ? THRESHOLD_ABBREV " dBTP" : THRESHOLD_ABBREV " dBFS");
+		ui->disable_signals = false;
 	} else if (port_index >= PLIM_GAIN && port_index <= PLIM_RELEASE) {
 		const float v       = *(float*)buffer;
 		ui->disable_signals = true;
