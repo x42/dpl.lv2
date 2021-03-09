@@ -258,10 +258,12 @@ run (LV2_Handle instance, uint32_t n_samples)
 		self->peaklim->set_inpgain (*self->_port[PLIM_GAIN]);
 		self->peaklim->set_threshold (*self->_port[PLIM_THRESHOLD]);
 		self->peaklim->set_release (*self->_port[PLIM_RELEASE]);
+		self->peaklim->set_truepeak (*self->_port[PLIM_TRUEPEAK] > 0);
 	} else {
 		self->peaklim->set_inpgain (0);
 		self->peaklim->set_threshold (BYPASS_THRESH);
 		self->peaklim->set_release (.05);
+		self->peaklim->set_truepeak (*self->_port[PLIM_TRUEPEAK] > 0);
 	}
 
 	float* ins[2]  = { self->_port[PLIM_INPUT0], self->_port[PLIM_INPUT1] };

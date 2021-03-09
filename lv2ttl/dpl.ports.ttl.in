@@ -74,9 +74,19 @@
 		lv2:portProperty pprop:logarithmic;
 		pprop:rangeSteps 151;
 	] , [
-		a lv2:OutputPort ,
+		a lv2:InputPort ,
 			lv2:ControlPort ;
 		lv2:index 6 ;
+		lv2:symbol "truepeak" ;
+		lv2:name "True Peak";
+		lv2:default 0;
+		lv2:minimum 0 ;
+		lv2:maximum 1 ;
+		lv2:portProperty lv2:integer, lv2:toggled;
+	] , [
+		a lv2:OutputPort ,
+			lv2:ControlPort ;
+		lv2:index 7 ;
 		lv2:symbol "level" ;
 		lv2:name "Signal Level" ;
 		lv2:minimum -10.0 ;
@@ -85,7 +95,7 @@
 	] , [
 		a lv2:OutputPort ,
 			lv2:ControlPort ;
-		lv2:index 7 ;
+		lv2:index 8 ;
 		lv2:symbol "latency" ;
 		lv2:name "Signal Latency" ;
 		lv2:minimum 0 ;
