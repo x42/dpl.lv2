@@ -16,7 +16,7 @@ static const RtkLv2Description _plugin_mono = {
 		{ "notify", ATOM_OUT, nan, nan, nan, "Plugin to GUI communication"},
 		{ "enable", CONTROL_IN, 1.000000, 0.000000, 1.000000, "Enable"},
 		{ "gain", CONTROL_IN, 0.000000, -10.000000, 30.000000, "Input Gain"},
-		{ "threshold", CONTROL_IN, 0.000000, -10.000000, 0.000000, "Threshold"},
+		{ "threshold", CONTROL_IN, -1.000000, -10.000000, 0.000000, "Threshold"},
 		{ "release", CONTROL_IN, 0.010000, 0.001000, 1.000000, "Release Time"},
 		{ "truepeak", CONTROL_IN, 0.000000, 0.000000, 1.000000, "True Peak"},
 		{ "level", CONTROL_OUT, nan, -10.000000, 20.000000, "Signal Level"},

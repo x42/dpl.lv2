@@ -94,7 +94,7 @@ typedef struct {
 
 const struct CtrlRange ctrl_range[] = {
 	{ -10, 30, 0, 0.2, 5, false, "Input Gain" },
-	{ -10, 0, 0, 0.1, 1, false, "Threshold" },
+	{ -10, 0, -1, 0.1, 1, false, "Threshold" },
 	{ .001, 1, 0.01, 150, 5, true, "Release" },
 };
 
