@@ -38,7 +38,7 @@
 #define MIN(A, B) ((A) < (B)) ? (A) : (B)
 #endif
 
-#define THRESHOLD_ABBREV "Thld"
+#define THRESHOLD_ABBREV "TH"
 
 struct CtrlRange {
 	float       min;
@@ -76,7 +76,7 @@ typedef struct {
 
 	RobTkDial* spn_ctrl[3];
 	RobTkLbl*  lbl_ctrl[3];
-	RobTkCBtn* btn_truepeak;
+	RobTkSelect* sel_truepeak;
 
 	cairo_pattern_t* m_fg;
 	cairo_pattern_t* m_bg;
@@ -99,11 +99,11 @@ const struct CtrlRange ctrl_range[] = {
 };
 
 static const char* tooltips[] = {
-	"<markup><b>Input Gain.</b> Gain applied\nbefore peak detection or any\nother processing.\n</markup>",
+	"<markup><b>Input Gain.</b> Gain applied\nbefore peak detection or any\nother processing.\n\n</markup>",
 
-	"<markup><b>Threshold.</b> The maximum sample\nvalue at the output.\n</markup>", // unused
+	"<markup><b>Threshold.</b> The maximum sample\nvalue at the output.\n\n</markup>", // unused
 
-	"<markup><b>Release time.</b> Minimum recovery\ntime. Low frequency content\nmay extend this.\n</markup>",
+	"<markup><b>Release time.</b> Minimum recovery\ntime. Low frequency content\nmay extend this.\n\n</markup>",
 	/*
 	"Note that DPL1 allows short release times even on signals that\n"
 	"contain high level low frequency signals. Any gain reduction caused by\n"
@@ -111,7 +111,7 @@ static const char* tooltips[] = {
 	"the limiter following the shape of the waveform and create excessive distortion.\n"
 	"Short superimposed peaks will still have the release time as set by this control.\n</markup>",
 	*/
-	"<markup><b>Threshold (Sample/True Peak).</b> Set\nmaximum alloed value at the output\nas digital or oversampled peak.\n</markup>",
+	"<markup><b>Threshold (Sample/True Peak).</b> Set\nmaximum allowed value at the output\nas digital or oversampled peak.\n\n</markup>",
 };
 
 static float
@@ -370,7 +370,7 @@ ttip_handler (RobWidget* rw, bool on, void* handle)
 			break;
 		}
 	}
-	if (rw == ui->btn_truepeak->rw) {
+	if (rw == ui->sel_truepeak->rw) {
 		ui->tt_id = 3;
 	}
 
@@ -410,14 +410,13 @@ cb_spn_ctrl (RobWidget* w, void* handle)
 }
 
 static bool
-cb_btn_truepeak (RobWidget* w, void* handle)
+cb_sel_truepeak (RobWidget* w, void* handle)
 {
 	PLimUI* ui = (PLimUI*)handle;
 	if (ui->disable_signals)
 		return TRUE;
 
-	const float val = robtk_cbtn_get_active (ui->btn_truepeak) ? 1.f : 0.f;
-	robtk_cbtn_set_text (ui->btn_truepeak, val > 0 ? THRESHOLD_ABBREV " dBTP" : THRESHOLD_ABBREV " dBFS");
+	const float val = robtk_select_get_value (ui->sel_truepeak);
 	ui->write (ui->controller, PLIM_TRUEPEAK, sizeof (float), 0, (const void*)&val);
 
 	return TRUE;
@@ -640,7 +639,7 @@ toplevel (PLimUI* ui, void* const top)
 #define GSP_W(PTR) robtk_dial_widget (PTR)
 #define GLB_W(PTR) robtk_lbl_widget (PTR)
 #define GSL_W(PTR) robtk_select_widget (PTR)
-#define GBT_W(PTR) robtk_cbtn_widget (PTR)
+#define GST_W(PTR) robtk_select_widget (PTR)
 
 	for (uint32_t i = 0; i < 3; ++i) {
 		ui->lbl_ctrl[i] = robtk_lbl_new (ctrl_range[i].name);
@@ -677,12 +676,17 @@ toplevel (PLimUI* ui, void* const top)
 	robtk_dial_annotation_callback (ui->spn_ctrl[2], dial_annotation_tm, ui);
 
 	/* add true-peak button/label */
-	ui->btn_truepeak = robtk_cbtn_new (THRESHOLD_ABBREV " dBFS", GBT_LED_RIGHT, false);
-	robtk_cbtn_set_callback (ui->btn_truepeak, cb_btn_truepeak, ui);
-	robtk_cbtn_set_color_on (ui->btn_truepeak, .1, .3, .8);
-	robtk_cbtn_set_color_off (ui->btn_truepeak, .1, .1, .3);
-	robtk_cbtn_annotation_callback (ui->btn_truepeak, ttip_handler, ui);
-	rob_table_attach (ui->ctbl, GBT_W (ui->btn_truepeak), 1, 2, 1, 2, 4, 0, RTK_EXANDF, RTK_SHRINK);
+	ui->sel_truepeak = robtk_select_new ();
+	robtk_select_add_item (ui->sel_truepeak, 0, THRESHOLD_ABBREV " dBFS");
+	robtk_select_add_item (ui->sel_truepeak, 1, THRESHOLD_ABBREV " dBTP");
+	robtk_select_set_default_item (ui->sel_truepeak, 0);
+	robtk_select_set_value (ui->sel_truepeak, 0);
+	robtk_select_set_callback (ui->sel_truepeak, cb_sel_truepeak, ui);
+	robtk_select_annotation_callback (ui->sel_truepeak, ttip_handler, ui);
+	if (ui->touch) {
+		robtk_select_set_touch (ui->sel_truepeak, ui->touch->touch, ui->touch->handle, PLIM_TRUEPEAK);
+	}
+	rob_table_attach (ui->ctbl, GST_W (ui->sel_truepeak), 1, 2, 1, 2, 4, 0, RTK_EXANDF, RTK_SHRINK);
 
 	/* some custom colors */
 	{
@@ -721,7 +725,7 @@ gui_cleanup (PLimUI* ui)
 		robtk_lbl_destroy (ui->lbl_ctrl[i]);
 		cairo_surface_destroy (ui->dial_bg[i]);
 	}
-	robtk_cbtn_destroy (ui->btn_truepeak);
+	robtk_select_destroy (ui->sel_truepeak);
 
 	pango_font_description_free (ui->font[0]);
 	pango_font_description_free (ui->font[1]);
@@ -911,8 +915,7 @@ port_event (LV2UI_Handle handle,
 		queue_draw (ui->m0);
 	} else if (port_index == PLIM_TRUEPEAK) {
 		ui->disable_signals = true;
-		robtk_cbtn_set_active (ui->btn_truepeak, (*(float*)buffer) > 0);
-		robtk_cbtn_set_text (ui->btn_truepeak, (*(float*)buffer) > 0 ? THRESHOLD_ABBREV " dBTP" : THRESHOLD_ABBREV " dBFS");
+		robtk_select_set_value (ui->sel_truepeak, (*(float*)buffer) > 0 ? 1 : 0);
 		ui->disable_signals = false;
 	} else if (port_index >= PLIM_GAIN && port_index <= PLIM_RELEASE) {
 		const float v       = *(float*)buffer;
