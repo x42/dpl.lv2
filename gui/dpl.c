@@ -394,7 +394,7 @@ top_leave_notify (RobWidget* rw)
 	if (ui->ctbl->expose_event != rcontainer_expose_event) {
 		ui->ctbl->expose_event    = rcontainer_expose_event;
 		ui->ctbl->parent->resized = TRUE; //full re-expose
-		queue_draw (ui->ctbl);
+		queue_draw (ui->rw);
 	}
 }
 
