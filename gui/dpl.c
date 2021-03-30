@@ -280,11 +280,11 @@ static void
 format_msec (char* txt, const float val)
 {
 	if (val < 0.03) {
-		snprintf (txt, 16, "%.1f ms", val * 1000.f);
+		snprintf (txt, 16, "%.1f ms  ", val * 1000.f);
 	} else if (val < 0.3) {
-		snprintf (txt, 16, "%.0f ms", val * 1000.f);
+		snprintf (txt, 16, "%.0f ms  ", val * 1000.f);
 	} else {
-		snprintf (txt, 16, "%.2f s", val);
+		snprintf (txt, 16, "%.2f s  ", val);
 	}
 }
 
@@ -573,7 +573,8 @@ m0_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev)
 				snprintf (txt, 16, "-%d ", (i - 2) * 5);
 				pango_layout_set_text (pl, txt, -1);
 			} else {
-				pango_layout_set_text (pl, "Gain Reduction:", -1);
+				pango_layout_set_text (pl, "Gain Reduction", -1);
+				dbx -= 2;
 			}
 			CairoSetSouerceRGBA (c_dlf);
 			pango_layout_get_pixel_size (pl, &tw, &th);
@@ -591,19 +592,24 @@ m0_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev)
 		PangoLayout* pl = pango_cairo_create_layout (cr);
 		pango_layout_set_font_description (pl, ui->font[2]);
 
-		snprintf (txt, 16, "%5.1f dB", robtk_dial_get_value (ui->spn_ctrl[0]));
+		snprintf (txt, 16, "%5.1f dB  ", robtk_dial_get_value (ui->spn_ctrl[0]));
 		cairo_set_source_rgb (cr, .6, .6, .1);
 		pango_layout_set_text (pl, txt, -1);
 		pango_layout_get_pixel_size (pl, &tw, &th);
-		cairo_move_to (cr, DEFLECT (-1) - tw, y0 + th * .5);
+		cairo_move_to (cr, DEFLECT (-0.5) - tw, y0 + th * .5);
 		pango_cairo_show_layout (cr, pl);
 		y0 += th;
 
-		snprintf (txt, 16, "%5.1f dB", robtk_dial_get_value (ui->spn_ctrl[1]));
+
+		if (robtk_cbtn_get_active (ui->btn_truepeak)) {
+			snprintf (txt, 16, "%5.1f dBTP", robtk_dial_get_value (ui->spn_ctrl[1]));
+		} else {
+			snprintf (txt, 16, "%5.1f dBFS", robtk_dial_get_value (ui->spn_ctrl[1]));
+		}
 		cairo_set_source_rgb (cr, .7, .2, .2);
 		pango_layout_set_text (pl, txt, -1);
 		pango_layout_get_pixel_size (pl, &tw, &th);
-		cairo_move_to (cr, DEFLECT (-1) - tw, y0 + th * .5);
+		cairo_move_to (cr, DEFLECT (-0.5) - tw, y0 + th * .5);
 		pango_cairo_show_layout (cr, pl);
 		y0 += th;
 
@@ -613,7 +619,7 @@ m0_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev)
 		cairo_set_source_rgb (cr, .2, .2, .7);
 		pango_layout_set_text (pl, txt, -1);
 		pango_layout_get_pixel_size (pl, &tw, &th);
-		cairo_move_to (cr, DEFLECT (-1) - tw, y0 + th * .5);
+		cairo_move_to (cr, DEFLECT (-0.5) - tw, y0 + th * .5);
 		pango_cairo_show_layout (cr, pl);
 
 		g_object_unref (pl);
@@ -925,6 +931,7 @@ port_event (LV2UI_Handle handle,
 		ui->disable_signals = true;
 		robtk_cbtn_set_active (ui->btn_truepeak, (*(float*)buffer) > 0);
 		robtk_cbtn_set_text (ui->btn_truepeak, (*(float*)buffer) > 0 ? THRESHOLD_ABBREV " dBTP" : THRESHOLD_ABBREV " dBFS");
+		queue_draw (ui->m0);
 		ui->disable_signals = false;
 	} else if (port_index >= PLIM_GAIN && port_index <= PLIM_RELEASE) {
 		const float v       = *(float*)buffer;
