@@ -54,7 +54,7 @@ private:
 class Peaklim
 {
 public:
-	enum { MAXCHAN = 64 };
+	enum { MAXCHAN = 2 };
 
 	Peaklim (void);
 	~Peaklim (void);
