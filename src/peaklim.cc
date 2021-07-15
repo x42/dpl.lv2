@@ -320,7 +320,7 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 					_g0 = _g1;
 					_dg = 0;
 				} else {
-					_dg /= _div1 * _div2;
+					_dg /= _div1 * _div2 * _div2;
 				}
 			}
 		}
