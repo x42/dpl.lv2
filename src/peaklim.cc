@@ -316,7 +316,7 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 				m2  = 0;
 				_c2 = _div2;
 				_dg = _g1 - _g0;
-				if (fabsf (_dg) < 1e-9f) {
+				if (fabsf (_dg) < 5e-4f) {
 					_g0 = _g1;
 					_dg = 0;
 				} else {
