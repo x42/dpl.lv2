@@ -27,31 +27,29 @@ using namespace DPLLV2;
 void
 Histmin::init (int hlen)
 {
-	int i;
-
 	assert (hlen <= SIZE);
 	_hlen = hlen;
 	_hold = hlen;
 	_wind = 0;
 	_vmin = 1;
-	for (i = 0; i < SIZE; i++)
+	for (int i = 0; i < SIZE; i++) {
 		_hist[i] = _vmin;
+	}
 }
 
 float
 Histmin::write (float v)
 {
-	int i, j;
-
-	i        = _wind;
+	int i    = _wind;
 	_hist[i] = v;
+
 	if (v <= _vmin) {
 		_vmin = v;
 		_hold = _hlen;
 	} else if (--_hold == 0) {
 		_vmin = v;
 		_hold = _hlen;
-		for (j = 1 - _hlen; j < 0; j++) {
+		for (int j = 1 - _hlen; j < 0; j++) {
 			v = _hist[(i + j) & MASK];
 			if (v < _vmin) {
 				_vmin = v;
@@ -84,25 +82,25 @@ Peaklim::~Peaklim (void)
 void
 Peaklim::set_inpgain (float v)
 {
-	_g1 = powf (10.0f, 0.05f * v);
+	_g1 = powf (10.f, 0.05f * v);
 }
 
 void
 Peaklim::set_threshold (float v)
 {
-	_gt = powf (10.0f, -0.05f * v);
+	_gt = powf (10.f, -0.05f * v);
 }
 
 void
 Peaklim::set_release (float v)
 {
-	if (v > 1.0f) {
-		v = 1.0f;
+	if (v > 1.f) {
+		v = 1.f;
 	}
 	if (v < 1e-3f) {
 		v = 1e-3f;
 	}
-	_w3 = 1.0f / (v * _fsamp);
+	_w3 = 1.f / (v * _fsamp);
 }
 
 void
@@ -122,76 +120,111 @@ Peaklim::set_truepeak (bool v)
 void
 Peaklim::init (float fsamp, int nchan)
 {
-	int i, k1, k2;
-
 	fini ();
 	if (nchan > MAXCHAN) {
 		nchan = MAXCHAN;
 	}
 	_fsamp = fsamp;
-	_nchan = nchan;
-	if (fsamp > 130000)
+	if (fsamp > 130000) {
 		_div1 = 32;
-	else if (fsamp > 65000) {
+	} else if (fsamp > 65000) {
 		_div1 = 16;
-	} else
+	} else {
 		_div1 = 8;
-	_div2  = 8;
-	k1     = (int)(ceilf (1.2e-3f * _fsamp / _div1));
-	k2     = 12;
-	_delay = k1 * _div1;
-	for (_dsize = 64; _dsize < _delay + _div1; _dsize *= 2)
-		;
-	_dmask = _dsize - 1;
-	_delri = 0;
-	for (i = 0; i < _nchan; i++) {
-		_dbuff[i] = new float[_dsize];
-		memset (_dbuff[i], 0, _dsize * sizeof (float));
 	}
-	_hist1.init (k1 + 1);
-	_hist2.init (k2);
-	_c1  = _div1;
-	_c2  = _div2;
-	_m1  = 0.0f;
-	_m2  = 0.0f;
-	_wlf = 6.28f * 500.0f / fsamp;
-	_w1  = 10.0f / _delay;
-	_w2  = _w1 / _div2;
-	_w3  = 1.0f / (0.01f * fsamp);
-	for (i = 0; i < _nchan; i++) {
-		_zlf[i] = 0.0f;
+
+	_nchan = nchan;
+	_div2  = 8;
+	int k1 = (int)(ceilf (1.2e-3f * fsamp / _div1));
+	int k2 = 12;
+	_delay = k1 * _div1;
+
+	int dly_size;
+	for (dly_size = 64; dly_size < _delay + _div1; dly_size *= 2) ;
+
+	_dmask = dly_size - 1;
+	_delri = 0;
+
+	for (int i = 0; i < _nchan; i++) {
+		_dbuff[i] = new float[dly_size];
+		memset (_dbuff[i], 0, dly_size * sizeof (float));
+		_zlf[i] = 0.f;
 		for (int j = 0; j < 48; ++j) {
 			_z[i][j] = 0.0f;
 		}
 	}
-	_z1   = 1.0f;
-	_z2   = 1.0f;
-	_z3   = 1.0f;
-	_gt   = 1.0f;
-	_g0   = 1.0f;
-	_g1   = 1.0f;
-	_dg   = 0.0f;
-	_gmax = 1.0f;
-	_gmin = 1.0f;
+
+	_hist1.init (k1 + 1);
+	_hist2.init (k2);
+
+	_c1  = _div1;
+	_c2  = _div2;
+	_m1  = 0.f;
+	_m2  = 0.f;
+	_wlf = 6.28f * 500.f / fsamp;
+	_w1  = 10.f / _delay;
+	_w2  = _w1 / _div2;
+	_w3  = 1.f / (0.01f * fsamp);
+	_z1  = 1.f;
+	_z2  = 1.f;
+	_z3  = 1.f;
+	_gt  = 1.f;
+	_g0  = 1.f;
+	_g1  = 1.f;
+	_dg  = 0.f;
+
+	_peak = 0.f;
+	_gmax = 1.f;
+	_gmin = 1.f;
 }
 
 void
 Peaklim::fini (void)
 {
-	int i;
-
-	for (i = 0; i < MAXCHAN; i++) {
+	for (int i = 0; i < MAXCHAN; i++) {
 		delete[] _dbuff[i];
 		_dbuff[i] = 0;
 	}
 	_nchan = 0;
 }
 
+/*
+ * _g1 : input-gain (target)
+ * _g0 : current gain (LPFed)
+ * _dg : gain-delta per sample, updated every (_div1 * _div2) samples
+ *
+ * _gt : threshold
+ *
+ * _m1 : digital-peak (reset per _div1 cycle)
+ * _m2 : low-pass filtered (_wlf) digital-peak (reset per _div2 cycle)
+ *
+ * _zlf[] helper to calc _m2 (per channel LPF'ed input) with input-gain applied
+ *
+ * _c1 : coarse chunk-size (sr dependent), count-down _div1
+ * _c2 : 8x divider of _c1 cycle
+ *
+ * _h1 : target gain-reduction according to 1 / _m1 (per _div1 cycle)
+ * _h2 : target gain-reduction according to 1 / _m2 (per _div2 cycle)
+ *
+ * _z1 : LPFed (_w1) _h1 gain (digital peak)
+ * _z2 : LPFed (_w2) _h2 gain (_wlf filtered digital peak)
+ *
+ * _z3 : actual gain to apply (max of _z1, z2)
+ *       falls (more gain-reduction) via _w1 (per sample);
+ *       rises (less gain-reduction) via _w3 (per sample);
+ *
+ * _w1 : 10 / delay;
+ * _w2 : _w1 / _div2
+ * _w3 : user-set release time
+ *
+ * _delri: offset in delay ringbuffer
+ * ri, wi; read/write indices
+ */
 void
 Peaklim::process (int nframes, float* inp[], float* out[])
 {
-	int   i, j, k, n, ri, wi;
-	float g, d, h1, h2, m1, m2, x, z, z1, z2, z3, pk, t0, t1, *p;
+	int   ri, wi;
+	float h1, h2, m1, m2, z1, z2, z3, pk, t0, t1;
 
 	ri = _delri;
 	wi = (ri + _delay) & _dmask;
@@ -214,18 +247,17 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 		t1 = _gmax;
 	}
 
-	k = 0;
+	int k = 0;
 	while (nframes) {
-		n = (_c1 < nframes) ? _c1 : nframes;
-
-		g = _g0;
-		for (j = 0; j < _nchan; j++) {
-			p = inp[j] + k;
-			z = _zlf[j];
-			g = _g0;
-			d = _dg;
-			for (i = 0; i < n; i++) {
-				x = g * *p++;
+		int   n = (_c1 < nframes) ? _c1 : nframes;
+		float g = _g0;
+		for (int j = 0; j < _nchan; j++) {
+			float* p = inp[j] + k;
+			float  z = _zlf[j];
+			float  d = _dg;
+			g        = _g0;
+			for (int i = 0; i < n; i++) {
+				float x = g * *p++;
 				g += d;
 				_dbuff[j][wi + i] = x;
 				z += _wlf * (x - z) + 1e-20f;
@@ -305,13 +337,13 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 			if (m1 > pk) {
 				pk = m1;
 			}
-			h1  = (m1 > 1.0f) ? 1.0f / m1 : 1.0f;
+			h1  = (m1 > 1.f) ? 1.f / m1 : 1.f;
 			h1  = _hist1.write (h1);
 			m1  = 0;
 			_c1 = _div1;
 			if (--_c2 == 0) {
 				m2 *= _gt;
-				h2  = (m2 > 1.0f) ? 1.0f / m2 : 1.0f;
+				h2  = (m2 > 1.f) ? 1.f / m2 : 1.f;
 				h2  = _hist2.write (h2);
 				m2  = 0;
 				_c2 = _div2;
@@ -325,10 +357,10 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 			}
 		}
 
-		for (i = 0; i < n; i++) {
+		for (int i = 0; i < n; i++) {
 			z1 += _w1 * (h1 - z1);
 			z2 += _w2 * (h2 - z2);
-			z = (z2 < z1) ? z2 : z1;
+			float z = (z2 < z1) ? z2 : z1;
 			if (z < z3) {
 				z3 += _w1 * (z - z3);
 			} else {
@@ -340,7 +372,7 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 			if (z3 < t0) {
 				t0 = z3;
 			}
-			for (j = 0; j < _nchan; j++) {
+			for (int j = 0; j < _nchan; j++) {
 				out[j][k + i] = z3 * _dbuff[j][ri + i];
 			}
 		}
@@ -351,12 +383,13 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 		nframes -= n;
 	}
 
+	_m1 = m1;
+	_m2 = m2;
+	_z1 = z1;
+	_z2 = z2;
+	_z3 = z3;
+
 	_delri = ri;
-	_m1    = m1;
-	_m2    = m2;
-	_z1    = z1;
-	_z2    = z2;
-	_z3    = z3;
 	_peak  = pk;
 	_gmin  = t0;
 	_gmax  = t1;
