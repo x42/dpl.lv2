@@ -320,15 +320,15 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 					x = fabsf (x);
 				}
 
-				if (x > m1) {
+				if (isgreater (x, m1)) {
 					m1 = x;
 				}
 				x = fabsf (z);
-				if (x > m2) {
+				if (isgreater (x, m2)) {
 					m2 = x;
 				}
 			}
-			_zlf[j] = z;
+			_zlf[j] = isfinite (z) ? z : 0.f;
 		}
 		_g0 = g;
 
@@ -384,6 +384,7 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 		nframes -= n;
 	}
 
+	/* copy back variables */
 	_m1 = m1;
 	_m2 = m2;
 	_z1 = z1;
