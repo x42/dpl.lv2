@@ -285,7 +285,7 @@ run (LV2_Handle instance, uint32_t n_samples)
 			self->_peak -= .3; // 6dB/sec
 		}
 		if (pk > self->_peak) {
-			self->_peak = pk;
+			self->_peak = MIN (20, pk);
 		}
 
 #ifdef DISPLAY_INTERFACE
