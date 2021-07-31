@@ -252,10 +252,11 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 		int   n = (_c1 < nframes) ? _c1 : nframes;
 		float g = _g0;
 		for (int j = 0; j < _nchan; j++) {
-			float* p = inp[j] + k;
-			float  z = _zlf[j];
-			float  d = _dg;
-			g        = _g0;
+			const float* p = inp[j] + k;
+			const float  d = _dg;
+			float        z = _zlf[j];
+
+			g = _g0;
 			for (int i = 0; i < n; i++) {
 				float x = g * *p++;
 				g += d;
@@ -360,7 +361,7 @@ Peaklim::process (int nframes, float* inp[], float* out[])
 		for (int i = 0; i < n; i++) {
 			z1 += _w1 * (h1 - z1);
 			z2 += _w2 * (h2 - z2);
-			float z = (z2 < z1) ? z2 : z1;
+			const float z = (z2 < z1) ? z2 : z1;
 			if (z < z3) {
 				z3 += _w1 * (z - z3);
 			} else {
