@@ -492,7 +492,12 @@ m0_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev)
 #define YPOS(y) (top + yscale * (y))
 #define HGHT(y) (yscale * (y))
 
-	CairoSetSouerceRGBA (c_blk);
+	get_color_from_theme (0, c);
+	if (ISBRIGHT (c)) {
+		CairoSetSouerceRGBA (c_blk);
+	} else {
+		CairoSetSouerceRGBA (c_g80);
+	}
 	rounded_rectangle (cr, 0, top, ui->m0_width, HGHT (80), 6);
 	cairo_fill_preserve (cr);
 	cairo_clip (cr);
