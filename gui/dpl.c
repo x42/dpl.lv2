@@ -635,13 +635,15 @@ m0_expose_event (RobWidget* handle, cairo_t* cr, cairo_rectangle_t* ev)
 
 ///////////////////////////////////////////////////////////////////////////////
 
+static void cb_scale_changed (RobWidget* w, void* handle);
+
 static RobWidget*
 toplevel (PLimUI* ui, void* const top)
 {
 	/* main widget: layout */
 	ui->rw = rob_hbox_new (FALSE, 2);
 	robwidget_make_toplevel (ui->rw, top);
-	robwidget_toplevel_enable_scaling (ui->rw);
+	robwidget_toplevel_enable_scaling (ui->rw, cb_scale_changed, ui);
 
 	ui->font[0] = pango_font_description_from_string ("Mono 9px");
 	ui->font[1] = pango_font_description_from_string ("Mono 10px");
@@ -812,6 +814,13 @@ ui_disable (LV2UI_Handle handle)
 	LV2_Atom* msg = (LV2_Atom*)x_forge_object (&ui->forge, &frame, 1, ui->uris.ui_off);
 	lv2_atom_forge_pop (&ui->forge, &frame);
 	ui->write (ui->controller, PLIM_ATOM_CONTROL, lv2_atom_total_size (msg), ui->uris.atom_eventTransfer, msg);
+}
+
+static void cb_scale_changed (RobWidget* w, void* handle) {
+	PLimUI* ui = (PLimUI*)handle;
+	if (!ui->disable_signals) {
+		tx_state (ui);
+	}
 }
 
 static enum LVGLResize
