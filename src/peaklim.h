@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010-2018 Fons Adriaensen <fons@linuxaudio.org>
+ * Copyright (C) 2021 Robin Gareus <robin@gareus.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
